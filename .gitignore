@@ -1,0 +1,38 @@
+# Mnemo data & runtime
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Environment
+backend/.env
+mobile/.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node / Expo
+node_modules/
+.expo/
+mobile/android/
+mobile/ios/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
