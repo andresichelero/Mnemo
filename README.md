@@ -28,13 +28,7 @@ cd backend && uvicorn app.main:app --reload
 ## Architecture
 
 - **Backend**: FastAPI + SQLite + ChromaDB
-- **LLM**: Ollama (Gemma 3 Vision) — runs locally
+- **LLM**: Ollama (Gemma 4 Vision) — runs locally
 - **Embeddings**: Telnyx API (semantic search) or full-text fallback
 - **Desktop**: CustomTkinter
 - **Mobile**: Expo / React Native (remote client via WiFi)
-
-## Documentation
-
-- [Project Plan](MNEMO_PROJECT_PLAN.md)
-- [Analysis](MNEMO_ANALYSIS.md)
-- [Implementation Plan](MNEMO_IMPLEMENTATION_PLAN.md)
