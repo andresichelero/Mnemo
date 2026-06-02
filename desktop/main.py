@@ -4,6 +4,7 @@ import subprocess
 import time
 import httpx
 import sqlite3
+import socket
 
 # Ensure desktop is in path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -49,16 +50,32 @@ def main():
         except Exception:
             pass
             
-    base_url = "http://127.0.0.1:8765/api/v1"
+    # Port Auto-Discovery (8765-8770)
+    def find_free_port(start_port=8765, max_port=8770):
+        for port in range(start_port, max_port + 1):
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                try:
+                    s.bind(("127.0.0.1", port))
+                    return port
+                except OSError:
+                    continue
+        return start_port # fallback to default if all seemingly taken
+
+    target_port = find_free_port()
+    base_url = f"http://127.0.0.1:{target_port}/api/v1"
     
-    # Check if backend is running
+    # Check if backend is already running on any of the standard ports
     is_running = False
-    try:
-        res = httpx.get(f"{base_url}/health", timeout=1.0)
-        if res.status_code == 200:
-            is_running = True
-    except httpx.RequestError:
-        pass
+    for port in range(8765, 8771):
+        try:
+            res = httpx.get(f"http://127.0.0.1:{port}/api/v1/health", timeout=0.5)
+            if res.status_code == 200:
+                is_running = True
+                base_url = f"http://127.0.0.1:{port}/api/v1"
+                target_port = port
+                break
+        except httpx.RequestError:
+            pass
         
     backend_process = None
     if not is_running:
@@ -70,7 +87,7 @@ def main():
         python_exec = sys.executable
         
         backend_process = subprocess.Popen(
-            [python_exec, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", "8765"],
+            [python_exec, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(target_port)],
             cwd=backend_dir
         )
         
