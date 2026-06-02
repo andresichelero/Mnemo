@@ -19,12 +19,10 @@ _PUBLIC_PATHS = frozenset({
 })
 
 
+from app.config import settings
+
 class APIKeyMiddleware(BaseHTTPMiddleware):
     """Reject requests without a valid API key."""
-
-    def __init__(self, app, api_key: str):
-        super().__init__(app)
-        self.api_key = api_key
 
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
@@ -35,7 +33,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
         # Check API key header
         provided_key = request.headers.get("X-API-Key", "")
-        if not provided_key or provided_key != self.api_key:
+        if not provided_key or provided_key != settings.api_key:
             return JSONResponse(
                 status_code=401,
                 content={"detail": "Missing or invalid API key", "code": "AUTH_REQUIRED"},

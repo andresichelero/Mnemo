@@ -134,7 +134,7 @@ def create_app() -> FastAPI:
     )
 
     # API key authentication
-    app.add_middleware(APIKeyMiddleware, api_key=settings.ensure_api_key())
+    app.add_middleware(APIKeyMiddleware)
 
     # API router
     from app.api.router import api_router

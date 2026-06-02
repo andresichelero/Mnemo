@@ -43,6 +43,25 @@ async def update_settings(
     }
     
     updated = await settings_service.update(session, filtered_updates)
+    
+    # Dynamically apply changes to background services
+    from app.services.file_watcher import file_watcher
+    from app.services.idle_detector import idle_detector
+    import json
+    
+    if "watched_folders" in updated:
+        try:
+            paths = json.loads(updated["watched_folders"])
+            file_watcher.stop()
+            file_watcher.start(paths)
+        except Exception:
+            pass
+            
+    if "idle_threshold_cpu" in updated or "idle_check_seconds" in updated:
+        threshold = float(updated.get("idle_threshold_cpu", "10"))
+        window = float(updated.get("idle_check_seconds", "30"))
+        idle_detector.update_config(threshold_cpu=threshold, idle_window_seconds=window)
+        
     return settings_service.mask_secrets(updated)
 
 
