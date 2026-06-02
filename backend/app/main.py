@@ -17,7 +17,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.db.init_db import init_db
+from app.db.session import async_session_factory
 from app.middleware.auth import APIKeyMiddleware
+from app.services.settings_service import settings_service
 
 __version__ = "0.1.0"
 
@@ -62,8 +64,16 @@ async def lifespan(app: FastAPI):
     # Initialise database (create tables + seed defaults)
     await init_db()
 
-    # Generate API key if not set
-    api_key = settings.ensure_api_key()
+    # Get or Generate API key and persist to DB
+    async with async_session_factory() as session:
+        db_api_key = await settings_service.get(session, "api_key")
+        if not db_api_key:
+            api_key = settings.ensure_api_key()
+            await settings_service.update(session, {"api_key": api_key})
+        else:
+            api_key = db_api_key
+            settings.api_key = api_key
+            
     logger.info(
         "mnemo.auth",
         api_key=api_key,
@@ -94,7 +104,7 @@ def create_app() -> FastAPI:
     # CORS — allow mobile and desktop clients
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # Narrowed in production via settings
+        allow_origins=settings.cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -102,6 +112,10 @@ def create_app() -> FastAPI:
 
     # API key authentication
     app.add_middleware(APIKeyMiddleware, api_key=settings.ensure_api_key())
+
+    # API router
+    from app.api.router import api_router
+    app.include_router(api_router)
 
     # ── Routes ──────────────────────────────────────────────────
     @app.get("/api/v1/health", tags=["system"])

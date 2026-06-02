@@ -105,14 +105,24 @@ def _parse_response(raw: str) -> dict:
 class LLMService:
     """Ollama-backed image analysis service."""
 
-    def __init__(self, base_url: str, model: str):
+    def __init__(
+        self,
+        base_url: str,
+        model: str,
+        timeout_cpu: int = 180,
+        timeout_gpu: int = 60,
+    ):
         self.base_url = base_url.rstrip("/")
         self.model = model
+        self.timeout_cpu = timeout_cpu
+        self.timeout_gpu = timeout_gpu
         self._client: httpx.AsyncClient | None = None
+        self._has_gpu: bool = False
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(timeout=httpx.Timeout(180.0, connect=10.0))
+            timeout = float(self.timeout_gpu if self._has_gpu else self.timeout_cpu)
+            self._client = httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=10.0))
         return self._client
 
     async def close(self) -> None:
@@ -128,6 +138,18 @@ class LLMService:
                 return False
             data = resp.json()
             models = [m.get("name", "") for m in data.get("models", [])]
+            
+            # Simple GPU detection via /api/ps (Ollama lists active models and their VRAM)
+            try:
+                ps_resp = await client.get(f"{self.base_url}/api/ps", timeout=5.0)
+                if ps_resp.status_code == 200:
+                    for m in ps_resp.json().get("models", []):
+                        if m.get("size_vram", 0) > 0:
+                            self._has_gpu = True
+                            break
+            except Exception:
+                pass # Ignore /api/ps failures
+
             # Check if our model (with or without tag) is available
             return any(self.model in m for m in models)
         except Exception as e:
@@ -142,7 +164,7 @@ class LLMService:
         Raises:
             RuntimeError: If analysis fails after all retries.
         """
-        image_b64 = encode_base64(file_path, max_size=1280)
+        image_b64 = await encode_base64(file_path, max_size=1280)
         client = await self._get_client()
 
         last_error: Exception | None = None

@@ -40,8 +40,9 @@ class MnemoSettings(BaseSettings):
 
     # ── Server ──────────────────────────────────────────────────────
     port: int = 8765
-    host: str = "0.0.0.0"
+    host: str = "127.0.0.1"
     log_level: str = "INFO"
+    cors_origins: list[str] = ["*"]
 
     # ── Security ────────────────────────────────────────────────────
     api_key: str = ""

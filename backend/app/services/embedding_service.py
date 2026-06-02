@@ -13,16 +13,23 @@ import structlog
 from cachetools import TTLCache
 
 logger = structlog.get_logger()
-
-TELNYX_EMBEDDINGS_URL = "https://api.telnyx.com/v2/ai/embeddings"
+TELNYX_EMBEDDINGS_URL = "https://api.telnyx.com/v2/ai/openai/embeddings"
 
 
 class EmbeddingService:
     """Telnyx Embeddings API wrapper with caching and graceful fallback."""
 
-    def __init__(self, api_key: str, model: str = "thenlper/gte-large"):
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "thenlper/gte-large",
+        ollama_base_url: str = "http://localhost:11434",
+        local_model: str = "nomic-embed-text",
+    ):
         self.api_key = api_key
         self.model = model
+        self.ollama_base_url = ollama_base_url.rstrip("/")
+        self.local_model = local_model
         self._client: httpx.AsyncClient | None = None
         # Cache embeddings by text hash — avoids re-calling API for identical text
         self._cache: TTLCache = TTLCache(maxsize=500, ttl=3600)
@@ -40,11 +47,20 @@ class EmbeddingService:
         return hashlib.sha256(text.encode()).hexdigest()[:16]
 
     async def check_connection(self) -> bool:
-        """Verify the API key is valid by sending a minimal embedding request."""
+        """Verify the API key is valid or fallback to local Ollama."""
+        client = await self._get_client()
         if not self.api_key:
+            # Fallback connection check
+            try:
+                resp = await client.get(f"{self.ollama_base_url}/api/tags", timeout=5.0)
+                if resp.status_code == 200:
+                    models = [m.get("name", "") for m in resp.json().get("models", [])]
+                    return any(self.local_model in m for m in models)
+            except Exception as e:
+                logger.warning("embedding.local_connection_failed", error=str(e))
             return False
+
         try:
-            client = await self._get_client()
             resp = await client.post(
                 TELNYX_EMBEDDINGS_URL,
                 headers={"Authorization": f"Bearer {self.api_key}"},
@@ -53,7 +69,7 @@ class EmbeddingService:
             )
             return resp.status_code == 200
         except Exception as e:
-            logger.warning("embedding.connection_failed", error=str(e))
+            logger.warning("embedding.telnyx_connection_failed", error=str(e))
             return False
 
     async def generate_embedding(self, text: str) -> list[float] | None:
@@ -67,10 +83,6 @@ class EmbeddingService:
 
         The pipeline is never blocked by embedding failures.
         """
-        if not self.api_key:
-            logger.debug("embedding.skipped", reason="no_api_key")
-            return None
-
         if not text or not text.strip():
             return None
 
@@ -85,27 +97,42 @@ class EmbeddingService:
 
         for attempt in range(3):
             try:
-                resp = await client.post(
-                    TELNYX_EMBEDDINGS_URL,
-                    headers={
-                        "Authorization": f"Bearer {self.api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "input": text,
-                        "model": self.model,
-                    },
-                )
-                resp.raise_for_status()
-
-                data = resp.json()
-                embedding = data["data"][0]["embedding"]
+                if self.api_key:
+                    resp = await client.post(
+                        TELNYX_EMBEDDINGS_URL,
+                        headers={
+                            "Authorization": f"Bearer {self.api_key}",
+                            "Content-Type": "application/json",
+                        },
+                        json={
+                            "input": text,
+                            "model": self.model,
+                        },
+                    )
+                    resp.raise_for_status()
+                    data = resp.json()
+                    embedding = data["data"][0]["embedding"]
+                    used_provider = "telnyx"
+                else:
+                    # Fallback offline
+                    resp = await client.post(
+                        f"{self.ollama_base_url}/api/embeddings",
+                        json={
+                            "prompt": text,
+                            "model": self.local_model,
+                        },
+                    )
+                    resp.raise_for_status()
+                    data = resp.json()
+                    embedding = data["embedding"]
+                    used_provider = "ollama"
 
                 # Cache the result
                 self._cache[cache_key] = embedding
 
                 logger.info(
                     "embedding.generated",
+                    provider=used_provider,
                     dimensions=len(embedding),
                     text_length=len(text),
                 )

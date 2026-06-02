@@ -26,6 +26,7 @@ class VectorStore:
         self.persist_path = persist_path
         self._client: chromadb.ClientAPI | None = None
         self._collection: chromadb.Collection | None = None
+        self._write_lock = asyncio.Lock()
 
     def _ensure_client(self) -> chromadb.Collection:
         """Lazily initialise the ChromaDB client and collection."""
@@ -66,7 +67,8 @@ class VectorStore:
                 metadatas=[meta],
             )
 
-        await self._run_sync(_add)
+        async with self._write_lock:
+            await self._run_sync(_add)
         logger.debug("vector_store.added", screenshot_id=screenshot_id)
 
     async def query(
@@ -116,7 +118,8 @@ class VectorStore:
             coll = self._ensure_client()
             coll.delete(ids=[screenshot_id])
 
-        await self._run_sync(_delete)
+        async with self._write_lock:
+            await self._run_sync(_delete)
         logger.debug("vector_store.deleted", screenshot_id=screenshot_id)
 
     async def count(self) -> int:
@@ -153,7 +156,9 @@ class VectorStore:
                 coll.delete(ids=list(orphans))
             return {"orphaned_removed": len(orphans), "total_checked": len(chroma_ids)}
 
-        result = await self._run_sync(_reconcile)
+        async with self._write_lock:
+            result = await self._run_sync(_reconcile)
+        
         if result["orphaned_removed"] > 0:
             logger.warning("vector_store.reconciled", **result)
         return result
