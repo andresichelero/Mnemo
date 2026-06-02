@@ -14,6 +14,7 @@ import logging
 import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import json
 
 from app.config import settings
 from app.db.init_db import init_db
@@ -80,12 +81,34 @@ async def lifespan(app: FastAPI):
         note="Save this API key — required for all /api/* requests via X-API-Key header",
     )
 
+    from app.services.idle_detector import idle_detector
+    from app.services.file_watcher import file_watcher
+    from app.services.scheduler import scheduler_service
+
+    async with async_session_factory() as session:
+        idle_threshold = float(await settings_service.get(session, "idle_threshold_cpu", "10"))
+        idle_check_seconds = float(await settings_service.get(session, "idle_check_seconds", "30"))
+        idle_detector.start(threshold_cpu=idle_threshold, idle_window_seconds=idle_check_seconds)
+
+        paths_str = await settings_service.get(session, "watched_folders", "[]")
+        try:
+            paths = json.loads(paths_str)
+        except Exception:
+            paths = []
+        file_watcher.start(paths)
+
+    scheduler_service.start()
+
     logger.info("mnemo.ready", port=settings.port, host=settings.host)
 
     yield
 
     # ── Shutdown ────────────────────────────────────────────────
     logger.info("mnemo.shutdown")
+    
+    scheduler_service.stop()
+    file_watcher.stop()
+    idle_detector.stop()
 
 
 def create_app() -> FastAPI:
