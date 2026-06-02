@@ -8,11 +8,13 @@ from app.config import settings
 
 pytestmark = pytest.mark.asyncio
 
+from app.db.init_db import init_db
+
 @pytest.fixture(scope="session", autouse=True)
-def setup_test_db():
-    # Make sure we don't interfere with real data if possible, though tests usually use a separate DB.
-    # For now, we'll just run it.
-    pass
+async def setup_test_db():
+    # Properly initialize DB including setting seeds
+    await init_db()
+    yield
 
 @pytest.fixture
 async def async_client():
