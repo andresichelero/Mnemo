@@ -37,6 +37,7 @@ class MnemoSettings(BaseSettings):
 
     # ── Telnyx ──────────────────────────────────────────────────────
     telnyx_api_key: str = ""
+    telnyx_embedding_model: str = "thenlper/gte-large"
 
     # ── Server ──────────────────────────────────────────────────────
     port: int = 8765
