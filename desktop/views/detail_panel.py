@@ -19,23 +19,28 @@ class DetailPanel(ctk.CTkFrame):
         self.img_label = ctk.CTkLabel(self.scrollable, text="Select an image")
         self.img_label.pack(pady=10)
         
+        # Fonts
+        title_font = ctk.CTkFont(family="Inter", size=16, weight="bold")
+        label_font = ctk.CTkFont(family="Inter", size=12, weight="bold")
+        text_font = ctk.CTkFont(family="Inter", size=12)
+
         # Details
-        self.title_label = ctk.CTkLabel(self.scrollable, text="", font=ctk.CTkFont(size=14, weight="bold"))
-        self.title_label.pack(pady=(10, 0), anchor="w")
+        self.title_label = ctk.CTkLabel(self.scrollable, text="", font=title_font)
+        self.title_label.pack(pady=(15, 5), anchor="w", padx=5)
         
-        self.desc_textbox = ctk.CTkTextbox(self.scrollable, height=120, wrap="word")
-        self.desc_textbox.pack(fill="x", pady=5)
+        self.desc_textbox = ctk.CTkTextbox(self.scrollable, height=120, wrap="word", font=text_font, fg_color=("gray85", "gray17"))
+        self.desc_textbox.pack(fill="x", pady=5, padx=5)
         self.desc_textbox.configure(state="disabled")
         
         # Tags & Category
-        self.cat_label = ctk.CTkLabel(self.scrollable, text="Category: ")
-        self.cat_label.pack(anchor="w", pady=(5, 0))
+        self.cat_label = ctk.CTkLabel(self.scrollable, text="Category: ", font=label_font, text_color=("gray20", "gray80"))
+        self.cat_label.pack(anchor="w", pady=(10, 0), padx=5)
         
-        self.tags_label = ctk.CTkLabel(self.scrollable, text="Tags: ")
-        self.tags_label.pack(anchor="w", pady=(5, 10))
+        self.tags_label = ctk.CTkLabel(self.scrollable, text="Tags: ", font=label_font, text_color=("gray20", "gray80"))
+        self.tags_label.pack(anchor="w", pady=(5, 10), padx=5)
         
-        self.text_textbox = ctk.CTkTextbox(self.scrollable, height=80, wrap="word")
-        self.text_textbox.pack(fill="x", pady=5)
+        self.text_textbox = ctk.CTkTextbox(self.scrollable, height=100, wrap="word", font=text_font, fg_color=("gray85", "gray17"))
+        self.text_textbox.pack(fill="x", pady=5, padx=5)
         self.text_textbox.configure(state="disabled")
         
         # Actions
@@ -175,7 +180,28 @@ class DetailPanel(ctk.CTkFrame):
             elif sys.platform == "darwin":
                 subprocess.run(["open", path])
             else:
-                subprocess.run(["xdg-open", path])
+                # Check for WSL
+                is_wsl = False
+                try:
+                    with open('/proc/version', 'r') as f:
+                        if 'microsoft' in f.read().lower():
+                            is_wsl = True
+                except:
+                    pass
+                    
+                if is_wsl:
+                    try:
+                        # Try wslview first
+                        subprocess.run(["wslview", path], check=True)
+                    except:
+                        # Fallback to explorer.exe using wslpath
+                        try:
+                            win_path = subprocess.check_output(["wslpath", "-w", path]).decode().strip()
+                            subprocess.run(["explorer.exe", win_path])
+                        except:
+                            print(f"Failed to open in WSL. Path: {path}")
+                else:
+                    subprocess.run(["xdg-open", path])
 
     def _move_to_folder(self):
         if not self.current_screenshot or not hasattr(self, 'available_folders'):

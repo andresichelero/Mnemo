@@ -22,7 +22,7 @@ class SettingsPanel(ctk.CTkToplevel):
         # Ollama Model
         self.ollama_label = ctk.CTkLabel(self, text="Ollama Model:")
         self.ollama_label.grid(row=1, column=0, padx=10, pady=10, sticky="w")
-        self.ollama_combobox = ctk.CTkComboBox(self, values=["gemma3:4b", "qwen2.5vl:7b", "gemma4:9b", "moondream2"])
+        self.ollama_combobox = ctk.CTkComboBox(self, values=["gemma4:e4b", "gemma3:4b", "qwen2.5vl:7b", "gemma4:9b", "moondream2"])
         self.ollama_combobox.grid(row=1, column=1, padx=10, pady=10, sticky="ew")
         
         # Telnyx API Key
@@ -91,8 +91,8 @@ class SettingsPanel(ctk.CTkToplevel):
         self.update()
         res = self.client.validate_settings()
         if "error" not in res:
-            o_ok = res.get("ollama_ok", False)
-            t_ok = res.get("telnyx_ok", False)
+            o_ok = res.get("ollama", {}).get("connected", False)
+            t_ok = res.get("telnyx", {}).get("connected", False)
             msg = f"Ollama: {'OK' if o_ok else 'FAIL'} | Telnyx: {'OK' if t_ok else 'FAIL'}"
             self.status_label.configure(text=msg, text_color="green" if o_ok and t_ok else "red")
         else:

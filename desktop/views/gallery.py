@@ -14,17 +14,20 @@ class GalleryItem(ctk.CTkFrame):
         self.grid_propagate(False)
         self.pack_propagate(False)
         
+        # Better styling for items
+        self.configure(fg_color=("gray90", "gray13"), border_width=1, border_color=("gray80", "gray20"))
+        
         # Load thumbnail placeholder
-        self.img_label = ctk.CTkLabel(self, text="Loading...")
-        self.img_label.pack(expand=True, fill="both", padx=5, pady=5)
+        self.img_label = ctk.CTkLabel(self, text="Loading...", fg_color="transparent")
+        self.img_label.pack(expand=True, fill="both", padx=10, pady=(10, 0))
         
         self.info_label = ctk.CTkLabel(self, text=screenshot_data.get("original_filename", "Unknown")[:20], 
-                                      font=ctk.CTkFont(size=10), text_color="gray")
-        self.info_label.pack(side="bottom", pady=5)
+                                      font=ctk.CTkFont(family="Inter", size=11, weight="bold"), text_color=("gray30", "gray70"))
+        self.info_label.pack(side="bottom", pady=8)
         
-        # Checkbox overlay
-        self.checkbox = ctk.CTkCheckBox(self, text="", width=24, height=24, corner_radius=5, command=self._on_checkbox_toggle)
-        self.checkbox.place(relx=1.0, rely=0.0, anchor="ne", x=-5, y=5)
+        # Checkbox overlay with better positioning
+        self.checkbox = ctk.CTkCheckBox(self, text="", width=24, height=24, corner_radius=6, border_width=2, command=self._on_checkbox_toggle)
+        self.checkbox.place(relx=1.0, rely=0.0, anchor="ne", x=-8, y=8)
         
         # Bind clicks
         self.bind("<Button-1>", self._on_click)
@@ -88,15 +91,27 @@ class GalleryView(ctk.CTkScrollableFrame):
         self.item_widgets.clear()
         self.items = items
         self.selected_ids.clear()
+        self.current_page = 0
+        self.items_per_page = 40
+        self._render_page()
+
+    def _render_page(self):
+        start_idx = self.current_page * self.items_per_page
+        end_idx = start_idx + self.items_per_page
+        page_items = self.items[start_idx:end_idx]
         
-        # Create new items
-        for i, item in enumerate(self.items):
-            row = i // self.cols
-            col = i % self.cols
+        for i, item in enumerate(page_items):
+            idx = start_idx + i
+            row = idx // self.cols
+            col = idx % self.cols
             
             widget = GalleryItem(self, item, self._handle_item_click, self.client)
             widget.grid(row=row, column=col, padx=10, pady=10, sticky="n")
             self.item_widgets[item["id"]] = widget
+            
+        if end_idx < len(self.items):
+            self.current_page += 1
+            self.after(500, self._render_page)
 
     def _handle_item_click(self, screenshot_data, is_checkbox=False, is_selected=False):
         sid = screenshot_data["id"]

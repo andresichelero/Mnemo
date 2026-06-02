@@ -15,8 +15,8 @@ logger = structlog.get_logger()
 DEFAULT_SETTINGS: dict[str, str] = {
     "watched_folders":           "[]",
     "ollama_base_url":           "http://localhost:11434",
-    "ollama_model":              "gemma3:4b",
-    "ollama_models_available":   '["gemma3:4b","gemma3:12b","gemma4:9b","qwen2.5vl:7b","moondream2"]',
+    "ollama_model":              "gemma4:e4b",
+    "ollama_models_available":   '["gemma3:4b","gemma3:12b","gemma4:e4b","qwen2.5vl:7b","moondream2"]',
     "telnyx_api_key":            "",
     "telnyx_embedding_model":    "thenlper/gte-large",
     "local_embedding_model":     "nomic-embed-text",

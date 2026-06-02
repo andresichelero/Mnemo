@@ -15,6 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.setting import Setting
+from app.core.security import encrypt_value, decrypt_value
 
 logger = structlog.get_logger()
 
@@ -46,7 +47,12 @@ class SettingsService:
 
         result = await session.execute(select(Setting))
         rows = result.scalars().all()
-        self._cache = {row.key: row.value for row in rows}
+        self._cache = {}
+        for row in rows:
+            if row.key == "api_key":
+                self._cache[row.key] = decrypt_value(row.value)
+            else:
+                self._cache[row.key] = row.value
         self._cache_ts = time.monotonic()
         return dict(self._cache)
 
@@ -62,10 +68,13 @@ class SettingsService:
         for key, value in updates.items():
             result = await session.execute(select(Setting).where(Setting.key == key))
             existing = result.scalar_one_or_none()
+            
+            db_value = encrypt_value(str(value)) if key == "api_key" else str(value)
+            
             if existing:
-                existing.value = str(value)
+                existing.value = db_value
             else:
-                session.add(Setting(key=key, value=str(value)))
+                session.add(Setting(key=key, value=db_value))
 
         await session.flush()
         self.invalidate()

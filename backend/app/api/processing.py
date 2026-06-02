@@ -17,6 +17,7 @@ from app.models.screenshot import Screenshot
 from app.schemas.schemas import ProcessingStatus, ProcessingTrigger, ProcessingTriggerResponse, ReprocessResponse
 from app.services.llm_service import LLMService
 from app.services.embedding_service import EmbeddingService
+from app.services.settings_service import settings_service
 from app.config import settings
 
 router = APIRouter(prefix="/processing", tags=["processing"])
@@ -38,11 +39,20 @@ async def get_processing_status(session: AsyncSession = Depends(get_session)):
     ).scalar() or 0
     
     # Optional: check if services are alive
-    llm = LLMService(settings.ollama_base_url, settings.ollama_model)
+    all_settings = await settings_service.get_all(session)
+    llm = LLMService(
+        all_settings.get("ollama_base_url", settings.ollama_base_url), 
+        all_settings.get("ollama_model", settings.ollama_model)
+    )
     ollama_ok = await llm.check_connection()
     await llm.close()
 
-    embedding = EmbeddingService(settings.telnyx_api_key, settings.telnyx_embedding_model)
+    embedding = EmbeddingService(
+        all_settings.get("telnyx_api_key", settings.telnyx_api_key), 
+        all_settings.get("telnyx_embedding_model", settings.telnyx_embedding_model),
+        all_settings.get("ollama_base_url", settings.ollama_base_url),
+        all_settings.get("local_embedding_model", "nomic-embed-text")
+    )
     telnyx_ok = await embedding.check_connection()
     await embedding.close()
 

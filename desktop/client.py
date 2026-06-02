@@ -65,7 +65,7 @@ class MnemoClient:
         return self._request("GET", f"/screenshots/{screenshot_id}")
 
     def analyze_screenshot(self, screenshot_id: str):
-        return self._request("POST", f"/screenshots/{screenshot_id}/analyze")
+        return self._request("POST", f"/screenshots/{screenshot_id}/analyze", json={"force": True})
 
     def get_folders(self):
         return self._request("GET", "/folders")

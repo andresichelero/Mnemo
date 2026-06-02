@@ -26,21 +26,28 @@ class StatusBar(ctk.CTkFrame):
         
     def _poll_status(self):
         try:
-            # We fetch health first because it has ollama/telnyx status if implemented
+            # We fetch health first just to check if backend is reachable
             health = self.client.get_health()
-            if "error" not in health:
-                o_up = health.get("ollama_up", False)
-                t_up = health.get("telnyx_up", False)
-                self.ollama_label.configure(text=f"Ollama: {'UP' if o_up else 'DOWN'}", 
-                                           text_color="green" if o_up else "red")
-                self.telnyx_label.configure(text=f"Telnyx: {'UP' if t_up else 'DOWN'}",
-                                           text_color="green" if t_up else "red")
+            if "error" in health:
+                self.status_label.configure(text="Disconnected", text_color="red")
+                self.ollama_label.configure(text="Ollama: DOWN", text_color="red")
+                self.telnyx_label.configure(text="Telnyx: DOWN", text_color="red")
+                self.after(5000, self._poll_status)
+                return
                                            
-            # Fetch processing status
+            # Fetch processing status which actually contains the AI connection states
             status = self.client.get_processing_status()
             if "error" not in status:
                 queue_size = status.get("queue_size", 0)
                 is_idle = status.get("is_idle", False)
+                
+                o_up = status.get("ollama_connected", False)
+                t_up = status.get("telnyx_connected", False)
+                
+                self.ollama_label.configure(text=f"Ollama: {'UP' if o_up else 'DOWN'}", 
+                                           text_color="green" if o_up else "red")
+                self.telnyx_label.configure(text=f"Telnyx: {'UP' if t_up else 'DOWN'}",
+                                           text_color="green" if t_up else "red")
                 
                 self.queue_label.configure(text=f"Queue: {queue_size}")
                 

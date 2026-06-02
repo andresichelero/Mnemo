@@ -157,6 +157,27 @@ class BackgroundSchedulerService:
                     await session.commit()
                     logger.info("scheduler.processed", id=s.id)
 
+                    # Export metadata to global text file
+                    exports_dir = settings.data_dir / "exports"
+                    exports_dir.mkdir(parents=True, exist_ok=True)
+                    safe_filename = Path(s.file_path).stem
+                    export_path = exports_dir / f"{safe_filename}_{s.id[:8]}.md"
+                    
+                    md_content = f"# {s.original_filename}\n\n"
+                    md_content += f"**ID:** {s.id}\n"
+                    md_content += f"**Category:** {analysis_result.category}\n"
+                    md_content += f"**Tags:** {', '.join(analysis_result.tags)}\n"
+                    md_content += f"**Contains Text:** {'Yes' if analysis_result.contains_text else 'No'}\n\n"
+                    md_content += f"## Description\n{analysis_result.description}\n\n"
+                    if analysis_result.extracted_text:
+                        md_content += f"## Extracted Text\n{analysis_result.extracted_text}\n"
+                    
+                    try:
+                        export_path.write_text(md_content, encoding="utf-8")
+                        logger.info("scheduler.exported_md", path=str(export_path))
+                    except Exception as export_err:
+                        logger.error("scheduler.export_error", error=str(export_err))
+
             except Exception as e:
                 logger.exception("scheduler.process_error", id=screenshot.id)
                 async with async_session_factory() as session:

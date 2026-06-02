@@ -23,7 +23,13 @@ def get_api_key():
             row = cursor.fetchone()
             conn.close()
             if row:
-                return row[0]
+                val = row[0]
+                try:
+                    from backend.app.core.security import decrypt_value
+                    val = decrypt_value(val)
+                except Exception as e:
+                    print(f"Failed to decrypt API key: {e}")
+                return val
         except Exception as e:
             print(f"Failed to read API key from DB: {e}")
             
